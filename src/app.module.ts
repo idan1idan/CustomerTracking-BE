@@ -5,19 +5,23 @@ import { AppointmentModule } from './appointment/appointment.module';
 import { PackageModule } from './package/package.module';
 import { TransactionModule } from './transaction/transaction.module';
 import { StorageModule } from './storage/storage.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'postgres',
-      password: 'admin',
-      synchronize: process.env.NODE_ENV !== 'production',
-      database: 'photo-me',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      autoLoadEntities: true,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST'),
+        port: configService.get<number>('DB_PORT'),
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        synchronize: process.env.NODE_ENV !== 'production',
+        database: configService.get<string>('DB_NAME'),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        autoLoadEntities: true,
+      }),
     }),
     CustomerModule,
     AppointmentModule,
