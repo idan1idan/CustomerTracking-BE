@@ -13,8 +13,6 @@ export class StorageService {
   private containerName: string;
 
   constructor(private readonly configService: ConfigService) {
-    console.log(this.configService.get<string>('BLOB_CONNECTION_STRING'));
-    console.log(this.configService.get<string>('TRANSACTION_CONTAINER_NAME'));
     const connectionString = this.configService.get<string>(
       'BLOB_CONNECTION_STRING',
     );

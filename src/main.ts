@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,6 +11,8 @@ async function bootstrap() {
     .setVersion('1.0')
     .addTag('Photo Me')
     .build();
+  const logger = new Logger('Config');
+  logger.log('Config', process.env.DB_USERNAME);
   app.useGlobalPipes(
     new ValidationPipe({
       disableErrorMessages: process.env.NODE_ENV === 'production',

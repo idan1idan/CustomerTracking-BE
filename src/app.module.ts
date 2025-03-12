@@ -28,7 +28,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     PackageModule,
     TransactionModule,
     StorageModule,
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
   ],
   controllers: [],
   providers: [],
