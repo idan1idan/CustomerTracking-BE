@@ -7,15 +7,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: 'dev'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
+    environment: dev # Use dev environment for build phase
     steps:
       - uses: actions/checkout@v4
 
@@ -29,12 +23,63 @@ jobs:
           npm install
           npm run build --if-present
         env:
+          # Access the environment secrets for build
           BLOB_CONNECTION_STRING: ${{ secrets.BLOB_CONNECTION_STRING }}
-          DB_HOST: ${{secrets.DB_HOST}}
-          DB_PORT: ${{secrets.DB_PORT}}
-          DB_USERNAME: ${{secrets.DB_USERNAME}}
-          DB_PASSWORD: ${{secrets.DB_PASSWORD}}
-          DB_NAME: ${{secrets.DB_NAME}}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+
+      - name: Create .env file for runtime
+        run: |
+          echo "BLOB_CONNECTION_STRING=${{ secrets.BLOB_CONNECTION_STRING }}" > .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
+
+      - name: Verify .env file exists
+        run: |
+          ls -la .env
+          echo "Contents of current directory:"
+          ls -la
+
+      - name: Zip artifact for deployment
+        run: |
+          # Ensure hidden files are included
+          zip -r release.zip . -i "*" ".*"
+          # Verify zip contents
+          unzip -l release.zip | grep .env
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: release.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment: Production # Use Production environment for deploy phase
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+
+      - name: Unzip artifact for deployment
+        run: unzip release.zip
+
+      - name: Verify .env file exists after unzip
+        run: |
+          ls -la .env
+          echo "Contents of current directory after unzip:"
+          ls -la
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -42,44 +87,6 @@ jobs:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_921FB74EC8D24E6D9368439A29FF9F16 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_289DEA7C081D4441A1F26A8C4D1ACC9A }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_F6309402388849E0A3A568C9DD0779EE }}
-
-      - name: Set App Settings
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: 'photome-dev'
-          app-settings-json: |
-            [
-              {
-                "name": "BLOB_CONNECTION_STRING",
-                "value": "${{ secrets.BLOB_CONNECTION_STRING }}",
-                "slotSetting": false
-              },
-              {
-                "name": "DB_HOST",
-                "value": "${{ secrets.DB_HOST }}",
-                "slotSetting": false
-              },
-              {
-                "name": "DB_PORT",
-                "value": "${{ secrets.DB_PORT }}",
-                "slotSetting": false
-              },
-              {
-                "name": "DB_PASSWORD",
-                "value": "${{ secrets.DB_PASSWORD }}",
-                "slotSetting": false
-              },
-              {
-                "name": "DB_NAME",
-                "value": "${{ secrets.DB_NAME }}",
-                "slotSetting": false
-              },
-              {
-                "name": "DB_USERNAME",
-                "value": "${{ secrets.DB_USERNAME }}",
-                "slotSetting": false
-              }
-            ]
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
